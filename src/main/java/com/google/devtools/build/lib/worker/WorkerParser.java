@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
 
-class WorkerParser {
+public class WorkerParser {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
