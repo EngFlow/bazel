@@ -502,7 +502,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
       throws IOException, ExecException, InterruptedException {
     WorkerParser workerParser =
         new WorkerParser(
-            execRoot, false, Options.getDefaults(WorkerOptions.class), LocalEnvProvider.NOOP, null);
+            execRoot,
+            // Doesn't support multiplex workers right now.
+            false,
+            !remoteOptions.workerSkipRunfiles,
+            Options.getDefaults(WorkerOptions.class),
+            LocalEnvProvider.NOOP,
+            null);
     WorkerKey workerKey = workerParser.compute(spawn, context).getWorkerKey();
     Fingerprint fingerprint = new Fingerprint();
     fingerprint.addBytes(workerKey.getWorkerFilesCombinedHash().asBytes());
