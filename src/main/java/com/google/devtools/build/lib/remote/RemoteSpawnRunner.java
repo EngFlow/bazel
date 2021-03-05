@@ -45,12 +45,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -103,8 +101,6 @@ import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Context;
 import io.grpc.Status.Code;
 import io.grpc.protobuf.StatusProto;
-
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -119,7 +115,7 @@ import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** A client for the remote execution service. */
 @ThreadSafe
@@ -386,7 +382,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 additionalInputs.put(commandHash, command);
                 Duration networkTimeStart = networkTime.getDuration();
                 Stopwatch uploadTime = Stopwatch.createStarted();
-                remoteCache.ensureInputsPresent(merkleTree, additionalInputs, isRetry.getAndSet(true));
+                remoteCache.ensureInputsPresent(
+                    merkleTree, additionalInputs, isRetry.getAndSet(true));
                 // subtract network time consumed here to ensure wall clock during upload is not
                 // double
                 // counted, and metrics time computation does not exceed total time
@@ -505,8 +502,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     fingerprint.addIterableStrings(workerKey.getArgs());
     fingerprint.addStringMap(workerKey.getEnv());
     return new ToolSignature(
-        fingerprint.hexDigestAndReset(),
-        workerKey.getWorkerFilesWithHashes().keySet());
+        fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithHashes().keySet());
   }
 
   private SpawnResult downloadAndFinalizeSpawnResult(
