@@ -55,7 +55,12 @@ public class TracingMetadataUtils {
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, ActionKey actionKey) {
-    return contextWithMetadata(buildRequestId, commandId, actionKey.getDigest().getHash());
+    return contextWithMetadata(buildRequestId, commandId, actionKey.getDigest().getHash(), null);
+  }
+
+  public static Context contextWithMetadata(
+      String buildRequestId, String commandId, ActionKey actionKey, String actionMnemonic) {
+    return contextWithMetadata(buildRequestId, commandId, actionKey.getDigest().getHash(), actionMnemonic);
   }
 
   /**
@@ -67,6 +72,11 @@ public class TracingMetadataUtils {
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, String actionId) {
+    return contextWithMetadata(buildRequestId, commandId, actionId, null);
+  }
+
+  public static Context contextWithMetadata(
+      String buildRequestId, String commandId, String actionId, String actionMnemonic) {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
@@ -79,6 +89,8 @@ public class TracingMetadataUtils {
                 ToolDetails.newBuilder()
                     .setToolName("bazel")
                     .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+            // The default value for proto strings is "".
+            .setActionMnemonic(actionMnemonic == null ? "" : actionMnemonic)
             .build();
     return contextWithMetadata(metadata);
   }
