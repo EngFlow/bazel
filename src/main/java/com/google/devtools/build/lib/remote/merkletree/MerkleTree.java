@@ -229,7 +229,11 @@ public class MerkleTree {
             .setDigest(file.getDigest())
             .setIsExecutable(true);
     if (file.isToolInput()) {
-      builder.addNodePropertiesBuilder().setName(BAZEL_TOOL_INPUT_MARKER).setValue("");
+      builder
+          .getNodePropertiesBuilder()
+          .addPropertiesBuilder()
+          .setName(BAZEL_TOOL_INPUT_MARKER)
+          .setValue("");
     }
     return builder.build();
   }
