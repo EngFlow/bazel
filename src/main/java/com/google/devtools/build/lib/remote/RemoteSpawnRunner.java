@@ -308,7 +308,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // Look up action cache, and reuse the action output if it is found.
     ActionKey actionKey = digestUtil.computeActionKey(action);
     Context withMetadata =
-        TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey)
+        TracingMetadataUtils.contextWithMetadata(
+                buildRequestId, commandId, actionKey, getActionMnemonicOrNull(spawn))
             .withValue(NetworkTime.CONTEXT_KEY, networkTime);
     Context previous = withMetadata.attach();
     Profiler prof = Profiler.instance();
@@ -444,6 +445,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } finally {
       withMetadata.detach(previous);
     }
+  }
+
+  private String getActionMnemonicOrNull(Spawn spawn) {
+    ActionExecutionMetadata metadata = spawn.getResourceOwner();
+    return metadata == null ? null : metadata.getMnemonic();
   }
 
   /** conversion utility for protobuf Timestamp difference to java.time.Duration */
