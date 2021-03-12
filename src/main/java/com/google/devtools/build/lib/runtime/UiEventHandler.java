@@ -22,10 +22,12 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionStateChangeEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -680,15 +682,8 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
-  public void schedulingAction(SchedulingActionEvent event) {
-    stateTracker.schedulingAction(event);
-    refresh();
-  }
-
-  @Subscribe
-  @AllowConcurrentEvents
-  public void runningAction(RunningActionEvent event) {
-    stateTracker.runningAction(event);
+  public void changeAction(ActionStateChangeEvent event) {
+    stateTracker.changeActionState(event);
     refresh();
   }
 

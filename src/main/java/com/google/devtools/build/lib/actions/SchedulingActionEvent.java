@@ -25,23 +25,26 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
  * ActionCompletionEvent} events, and should only appear after a corresponding {@link
  * ScanningActionEvent}. TODO(jmmv): But this theory is not true today. Investigate.
  */
-public class SchedulingActionEvent implements ProgressLike {
-
+public class SchedulingActionEvent implements ProgressLike, ActionStateChangeEvent {
   private final ActionExecutionMetadata action;
   private final String strategy;
 
-  /** Constructs a new event. */
   public SchedulingActionEvent(ActionExecutionMetadata action, String strategy) {
     this.action = action;
     this.strategy = checkNotNull(strategy, "Strategy names are not optional");
   }
 
-  /** Gets the metadata associated with the action being scheduled. */
+  @Override
+  public State getState() {
+    return State.SCHEDULING;
+  }
+
+  @Override
   public ActionExecutionMetadata getActionMetadata() {
     return action;
   }
 
-  /** Gets the name of the strategy on which the action is scheduling. */
+  @Override
   public String getStrategy() {
     return strategy;
   }
