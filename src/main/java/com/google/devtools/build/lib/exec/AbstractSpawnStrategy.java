@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.DownloadingActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -311,12 +313,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       // TODO(ulfjack): We should report more details to the UI.
       ExtendedEventHandler eventHandler = actionExecutionContext.getEventHandler();
       switch (state) {
+        case UPLOADING:
+          eventHandler.post(new UploadingActionEvent(action, name));
+          break;
         case EXECUTING:
         case CHECKING_CACHE:
           eventHandler.post(new RunningActionEvent(action, name));
           break;
         case SCHEDULING:
           eventHandler.post(new SchedulingActionEvent(action, name));
+          break;
+        case DOWNLOADING:
+          eventHandler.post(new DownloadingActionEvent(action, name));
           break;
         default:
           break;

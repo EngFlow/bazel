@@ -572,7 +572,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
-    stateTracker.runningAction(new RunningActionEvent(action, strategy));
+    stateTracker.changeActionState(new RunningActionEvent(action, strategy));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -599,8 +599,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     UiStateTracker stateTracker = new UiStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
-    stateTracker.runningAction(new RunningActionEvent(action, strategy1));
-    stateTracker.runningAction(new RunningActionEvent(action, strategy2));
+    stateTracker.changeActionState(new RunningActionEvent(action, strategy1));
+    stateTracker.changeActionState(new RunningActionEvent(action, strategy2));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -642,23 +642,23 @@ public class UiStateTrackerTest extends FoundationTestCase {
     when(action2.getPrimaryOutput()).thenReturn(artifact2);
     stateTracker.actionStarted(new ActionStartedEvent(action2, clock.nanoTime()));
 
-    stateTracker.runningAction(new RunningActionEvent(action1, "strategy1"));
-    stateTracker.schedulingAction(new SchedulingActionEvent(action2, "strategy1"));
+    stateTracker.changeActionState(new RunningActionEvent(action1, "strategy1"));
+    stateTracker.changeActionState(new SchedulingActionEvent(action2, "strategy1"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
     assertThat(terminalWriter.getTranscript()).contains("2 actions, 1 running");
 
-    stateTracker.runningAction(new RunningActionEvent(action1, "strategy2"));
+    stateTracker.changeActionState(new RunningActionEvent(action1, "strategy2"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
     assertThat(terminalWriter.getTranscript()).contains("3 actions, 2 running");
 
-    stateTracker.runningAction(new RunningActionEvent(action2, "strategy1"));
+    stateTracker.changeActionState(new RunningActionEvent(action2, "strategy1"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
     assertThat(terminalWriter.getTranscript()).contains("3 actions running");
 
-    stateTracker.runningAction(new RunningActionEvent(action2, "strategy2"));
+    stateTracker.changeActionState(new RunningActionEvent(action2, "strategy2"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
     assertThat(terminalWriter.getTranscript()).contains("4 actions running");
@@ -772,7 +772,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // Then action bar gets scheduled.
     stateTracker.actionStarted(new ActionStartedEvent(actionBar, 123456701));
-    stateTracker.schedulingAction(new SchedulingActionEvent(actionBar, "bar-sandbox"));
+    stateTracker.changeActionState(new SchedulingActionEvent(actionBar, "bar-sandbox"));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -791,7 +791,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         .isTrue();
 
     // Then foo starts.
-    stateTracker.runningAction(new RunningActionEvent(actionFoo, "xyz-sandbox"));
+    stateTracker.changeActionState(new RunningActionEvent(actionFoo, "xyz-sandbox"));
     stateTracker.writeProgressBar(terminalWriter);
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -834,10 +834,10 @@ public class UiStateTrackerTest extends FoundationTestCase {
     when(actionBar.getOwner()).thenReturn(ownerBar);
 
     stateTracker.actionStarted(new ActionStartedEvent(actionFoo, clock.nanoTime()));
-    stateTracker.runningAction(new RunningActionEvent(actionFoo, "foo-sandbox"));
+    stateTracker.changeActionState(new RunningActionEvent(actionFoo, "foo-sandbox"));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(7));
     stateTracker.actionStarted(new ActionStartedEvent(actionBar, clock.nanoTime()));
-    stateTracker.schedulingAction(new SchedulingActionEvent(actionBar, "bar-sandbox"));
+    stateTracker.changeActionState(new SchedulingActionEvent(actionBar, "bar-sandbox"));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(21));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -850,7 +850,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         .that(output.contains("21s"))
         .isTrue();
 
-    stateTracker.runningAction(new RunningActionEvent(actionBar, "bar-sandbox"));
+    stateTracker.changeActionState(new RunningActionEvent(actionBar, "bar-sandbox"));
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
@@ -886,7 +886,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String output;
 
     // Early status announcement
-    stateTracker.runningAction(new RunningActionEvent(actionFoo, "foo-sandbox"));
+    stateTracker.changeActionState(new RunningActionEvent(actionFoo, "foo-sandbox"));
 
     // Here we don't expect any particular output, just some description; in particular, we do
     // not expect the state tracker to hit an internal error.
@@ -918,7 +918,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
       ActionOwner owner = Mockito.mock(ActionOwner.class);
       when(action.getOwner()).thenReturn(owner);
       stateTracker.actionStarted(new ActionStartedEvent(action, 123456789 + i));
-      stateTracker.schedulingAction(new SchedulingActionEvent(action, "xyz-sandbox"));
+      stateTracker.changeActionState(new SchedulingActionEvent(action, "xyz-sandbox"));
     }
 
     for (int i = 0; i < 3; i++) {
@@ -926,7 +926,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
       ActionOwner owner = Mockito.mock(ActionOwner.class);
       when(action.getOwner()).thenReturn(owner);
       stateTracker.actionStarted(new ActionStartedEvent(action, 123457000 + i));
-      stateTracker.runningAction(new RunningActionEvent(action, "xyz-sandbox"));
+      stateTracker.changeActionState(new RunningActionEvent(action, "xyz-sandbox"));
 
       LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
       stateTracker.writeProgressBar(terminalWriter);

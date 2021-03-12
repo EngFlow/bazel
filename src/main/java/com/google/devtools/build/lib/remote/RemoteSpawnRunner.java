@@ -377,6 +377,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
               ExecuteRequest request = requestBuilder.build();
 
               // Upload the command and all the inputs into the remote cache.
+              context.report(ProgressStatus.UPLOADING, getName());
               try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
                 Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
                 additionalInputs.put(actionKey.getDigest(), action);
@@ -391,6 +392,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 spawnMetrics.setUploadTime(
                     uploadTime.elapsed().minus(networkTime.getDuration().minus(networkTimeStart)));
               }
+
+              context.report(ProgressStatus.SCHEDULING, getName());
 
               ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
               ExecuteResponse reply;
@@ -413,6 +416,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
               spawnMetricsAccounting(spawnMetrics, actionResult.getExecutionMetadata());
 
+              context.report(ProgressStatus.DOWNLOADING, getName());
               try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
                 maybeDownloadServerLogs(reply, actionKey);
               }
