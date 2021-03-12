@@ -18,26 +18,19 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
-/**
- * Notifies that an in-flight action is running.
- *
- * <p>This event should only appear in-between corresponding {@link ActionStartedEvent} and {@link
- * ActionCompletionEvent} events, and should only appear after corresponding {@link
- * ScanningActionEvent} and {@link SchedulingActionEvent} events. TODO(jmmv): But this theory is not
- * true today. Investigate.
- */
-public class RunningActionEvent implements ProgressLike, ActionStateChangeEvent {
+/** Notifies that an in-flight action is uploading. */
+public class UploadingActionEvent implements ProgressLike, ActionStateChangeEvent {
   private final ActionExecutionMetadata action;
   private final String strategy;
 
-  public RunningActionEvent(ActionExecutionMetadata action, String strategy) {
+  public UploadingActionEvent(ActionExecutionMetadata action, String strategy) {
     this.action = action;
     this.strategy = checkNotNull(strategy, "Strategy names are not optional");
   }
 
   @Override
   public State getState() {
-    return State.EXECUTING;
+    return State.UPLOADING;
   }
 
   @Override

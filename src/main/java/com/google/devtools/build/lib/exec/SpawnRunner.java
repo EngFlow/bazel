@@ -110,6 +110,9 @@ public interface SpawnRunner {
     /** The {@link SpawnRunner} is looking for a cache hit. */
     CHECKING_CACHE,
 
+    /** The {@link SpawnRunner} is uploading files to a remote machine. */
+    UPLOADING,
+
     /**
      * Resources are acquired, and there was probably no cache hit. This MUST be posted before
      * attempting to execute the subprocess.

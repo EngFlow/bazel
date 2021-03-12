@@ -27,10 +27,9 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionStateChangeEvent;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
-import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -174,10 +173,8 @@ final class UiStateTracker {
    */
   private static final class ActionState {
     /**
-     * The action this state belongs to.
-     *
-     * <p>We assume that all events related to the same action refer to the same {@link
-     * ActionExecutionMetadata} object.
+     * The action this state belongs to. We assume that all events related to the same action refer
+     * to the same {@link ActionExecutionMetadata} object.
      */
     final ActionExecutionMetadata action;
 
@@ -194,6 +191,13 @@ final class UiStateTracker {
     boolean scanning;
 
     /**
+     * Bitmap of strategies that are uploading this action.
+     *
+     * <p>If non-zero, implies that {@link #scanning} is false.
+     */
+    int uploadingStrategiesBitmap = 0;
+
+    /**
      * Bitmap of strategies that are scheduling this action.
      *
      * <p>If non-zero, implies that {@link #scanning} is false.
@@ -206,6 +210,13 @@ final class UiStateTracker {
      * <p>If non-zero, implies that {@link #scanning} is false.
      */
     int runningStrategiesBitmap = 0;
+
+    /**
+     * Bitmap of strategies that are downloading.
+     *
+     * <p>If non-zero, implies that {@link #scanning} is false.
+     */
+    int downloadingStrategiesBitmap = 0;
 
     /** Starts tracking the state of an action. */
     ActionState(ActionExecutionMetadata action, long nanoStartTime) {
@@ -227,7 +238,10 @@ final class UiStateTracker {
      * scheduled or running.
      */
     synchronized void setScanning(long nanoChangeTime) {
-      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+      if (schedulingStrategiesBitmap == 0
+          && uploadingStrategiesBitmap == 0
+          && runningStrategiesBitmap == 0
+          && downloadingStrategiesBitmap == 0) {
         scanning = true;
         nanoStartTime = nanoChangeTime;
       }
@@ -240,7 +254,10 @@ final class UiStateTracker {
      * scheduled or running.
      */
     synchronized void setStopScanning(long nanoChangeTime) {
-      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+      if (schedulingStrategiesBitmap == 0
+          && uploadingStrategiesBitmap == 0
+          && runningStrategiesBitmap == 0
+          && downloadingStrategiesBitmap == 0) {
         scanning = false;
         nanoStartTime = nanoChangeTime;
       }
@@ -252,33 +269,40 @@ final class UiStateTracker {
      * <p>Because we may receive events out of order, this does nothing if the action is already
      * running with this strategy.
      */
-    synchronized void setScheduling(String strategy, long nanoChangeTime) {
+    synchronized void changeActionState(
+        ActionStateChangeEvent.State state, String strategy, long nanoChangeTime) {
       int id = strategyIds.getId(strategy);
-      if ((runningStrategiesBitmap & id) == 0) {
-        scanning = false;
-        schedulingStrategiesBitmap |= id;
-        nanoStartTime = nanoChangeTime;
-      }
-    }
-
-    /**
-     * Marks the action as running with the given strategy.
-     *
-     * <p>Because "running" is a terminal state, this forcibly updates the state to running
-     * regardless of any other events (which may come out of order).
-     */
-    synchronized void setRunning(String strategy, long nanoChangeTime) {
       scanning = false;
-      int id = strategyIds.getId(strategy);
-      schedulingStrategiesBitmap &= ~id;
-      runningStrategiesBitmap |= id;
-      nanoStartTime = nanoChangeTime;
+      switch (state) {
+        case SCHEDULING:
+          uploadingStrategiesBitmap &= ~id;
+          schedulingStrategiesBitmap |= id;
+          nanoStartTime = nanoChangeTime;
+          break;
+        case UPLOADING:
+          schedulingStrategiesBitmap &= ~id;
+          uploadingStrategiesBitmap |= id;
+          nanoStartTime = nanoChangeTime;
+          break;
+        case EXECUTING:
+          runningStrategiesBitmap |= id;
+          nanoStartTime = nanoChangeTime;
+          break;
+        case DOWNLOADING:
+          downloadingStrategiesBitmap |= id;
+          nanoStartTime = nanoChangeTime;
+          break;
+      }
     }
 
     /** Generates a human-readable description of this action's state. */
     synchronized String describe() {
-      if (runningStrategiesBitmap != 0) {
+      if (downloadingStrategiesBitmap != 0) {
+        return "Downloading";
+      } else if (runningStrategiesBitmap != 0) {
         return "Running";
+      } else if (uploadingStrategiesBitmap != 0) {
+        return "Uploading";
       } else if (schedulingStrategiesBitmap != 0) {
         return "Scheduling";
       } else if (scanning) {
@@ -487,18 +511,12 @@ final class UiStateTracker {
     getActionState(action, actionId, now).setStopScanning(now);
   }
 
-  void schedulingAction(SchedulingActionEvent event) {
+  void changeActionState(ActionStateChangeEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     long now = clock.nanoTime();
-    getActionState(action, actionId, now).setScheduling(event.getStrategy(), now);
-  }
-
-  void runningAction(RunningActionEvent event) {
-    ActionExecutionMetadata action = event.getActionMetadata();
-    Artifact actionId = event.getActionMetadata().getPrimaryOutput();
-    long now = clock.nanoTime();
-    getActionState(action, actionId, now).setRunning(event.getStrategy(), now);
+    getActionState(action, actionId, now)
+        .changeActionState(event.getState(), event.getStrategy(), now);
   }
 
   void actionCompletion(ActionScanningCompletedEvent event) {
@@ -651,20 +669,26 @@ final class UiStateTracker {
 
     String postfix = "";
     String prefix = "";
-    long nanoRuntime = nanoTime - actionState.nanoStartTime;
-    long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
+    long nanoRuntime;
+    long runtimeSeconds;
     String strategy = null;
-    if (actionState.runningStrategiesBitmap != 0) {
-      strategy = strategyIds.formatNames(actionState.runningStrategiesBitmap);
-    } else {
-      String status = actionState.describe();
-      if (status == null) {
-        status = NO_STATUS;
+    // If we don't synchronize here, we can race with another thread updating actionState.
+    synchronized (actionState) {
+      nanoRuntime = nanoTime - actionState.nanoStartTime;
+      runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
+      if (actionState.downloadingStrategiesBitmap == 0
+          && actionState.runningStrategiesBitmap != 0) {
+        strategy = strategyIds.formatNames(actionState.runningStrategiesBitmap);
+      } else {
+        String status = actionState.describe();
+        if (status == null) {
+          status = NO_STATUS;
+        }
+        if (status.length() > STATUS_LENGTH) {
+          status = status.substring(0, STATUS_LENGTH);
+        }
+        prefix = prefix + "[" + status + "] ";
       }
-      if (status.length() > STATUS_LENGTH) {
-        status = status.substring(0, STATUS_LENGTH);
-      }
-      prefix = prefix + "[" + status + "] ";
     }
     // To keep the UI appearance more stable, always show the elapsed
     // time if we also show a strategy (otherwise the strategy will jump in
