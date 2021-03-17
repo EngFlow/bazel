@@ -477,7 +477,7 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
           name = "experimental_remote_deduplicate_uploads",
-          defaultValue = "false",
+          defaultValue = "true",
           category = "remote",
           documentationCategory = OptionDocumentationCategory.REMOTE,
           effectTags = {OptionEffectTag.EXECUTION},
