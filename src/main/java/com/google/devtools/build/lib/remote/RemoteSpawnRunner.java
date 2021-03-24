@@ -330,6 +330,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             acceptCachedResult = false;
           } else {
             try {
+              context.report(ProgressStatus.DOWNLOADING, getName());
               return downloadAndFinalizeSpawnResult(
                   actionKey.getDigest().getHash(),
                   cachedResult,
