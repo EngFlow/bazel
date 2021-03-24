@@ -408,6 +408,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             }
 
             try {
+              context.report(ProgressStatus.DOWNLOADING, getName());
               return downloadAndFinalizeSpawnResult(
                   remoteActionExecutionContext,
                   actionKey.getDigest().getHash(),
