@@ -505,7 +505,7 @@ public final class RemoteOptions extends OptionsBase {
       help =
           "When --remote_download_minimal is disabled, this flag is ignored. Otherwise, this "
               + "controls whether inputs to symlink actions are fetched to the local machine. "
-              + "This is a transitional option that we expect to enable by default.")
+              + "This is a transitional option that we expect to disable by default.")
   public boolean fetchSymlinkInputs;
 
   // The below options are not configurable by users, only tests.
