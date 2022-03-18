@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.authandtls.CredentialsHelperCredentials;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
@@ -93,6 +94,8 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
@@ -100,11 +103,13 @@ import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -216,6 +221,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       creds =
           newCredentials(
+              env.getWorkspace(),
               env.getClientEnv(),
               env.getRuntime().getFileSystem(),
               env.getReporter(),
@@ -431,6 +437,7 @@ public final class RemoteModule extends BlazeModule {
       callCredentialsProvider =
           GoogleAuthUtils.newCallCredentialsProvider(
               newCredentials(
+                  env.getWorkspace(),
                   env.getClientEnv(),
                   env.getRuntime().getFileSystem(),
                   env.getReporter(),
@@ -1087,12 +1094,41 @@ public final class RemoteModule extends BlazeModule {
    */
   @VisibleForTesting
   static Credentials newCredentials(
+      Path workspace,
       Map<String, String> clientEnv,
       FileSystem fileSystem,
       Reporter reporter,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions)
       throws IOException {
+    if (authAndTlsOptions.credentialHelper != null) {
+      // A credential helper takes precedence over all other auth providers.
+
+      var credentialHelperPathFragment = PathFragment.create(authAndTlsOptions.credentialHelper);
+      if (!PathFragment.EMPTY_FRAGMENT.equals(credentialHelperPathFragment.getParentDirectory())) {
+        // The user passed a path as credential helper.
+        return new CredentialsHelperCredentials(
+            credentialHelperPathFragment.getBaseName(),
+            credentialHelperPathFragment,
+            clientEnv,
+            workspace);
+      } else {
+        // The user passed only the name of the credential helper.
+        String credentialHelperName =
+            String.format(
+                Locale.US,
+                "%s-bazel-credential-helper",
+                authAndTlsOptions.credentialHelper);
+        PathFragment credentialHelperPath =
+            lookupOnPath(clientEnv, workspace, credentialHelperName);
+        return new CredentialsHelperCredentials(
+            credentialHelperName,
+            credentialHelperPath,
+            clientEnv,
+            workspace);
+      }
+    }
+
     Credentials creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
 
     // Fallback to .netrc if it exists
@@ -1120,5 +1156,23 @@ public final class RemoteModule extends BlazeModule {
     }
 
     return creds;
+  }
+
+  private static PathFragment lookupOnPath(Map<String, String> env, Path workspace, String program) throws IOException {
+    Preconditions.checkNotNull(env);
+    Preconditions.checkNotNull(program);
+
+    String pathEnvVariable = env.get("PATH");
+    if (pathEnvVariable != null) {
+      for (String p : pathEnvVariable.split(File.pathSeparator)) {
+        Path path = workspace.getRelative(p).getChild(program);
+        if (path.exists(Symlinks.FOLLOW) && path.isFile(Symlinks.FOLLOW) && path.isExecutable()) {
+          return path.asFragment();
+        }
+      }
+    }
+    // There is no `PATH`, or there is no executable with the correct name in `PATH`, so there's not
+    // much we can do. Simply return `program` to avoid NPE crashing the server process.
+    return PathFragment.create(program);
   }
 }

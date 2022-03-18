@@ -563,7 +563,12 @@ public final class RemoteModuleTest {
 
     Credentials credentials =
         RemoteModule.newCredentials(
-            clientEnv, fileSystem, reporter, authAndTLSOptions, remoteOptions);
+            fileSystem.getPath("/path/to/workspace"),
+            clientEnv,
+            fileSystem,
+            reporter,
+            authAndTLSOptions,
+            remoteOptions);
 
     assertThat(credentials).isNotNull();
   }

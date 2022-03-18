@@ -12,6 +12,7 @@ FILES = [
     "bazel_flags",
     "build",
     "builtin",
+    "credential_helper",
     "crosstool_config",
     "deps",
     "desugar_deps",
@@ -193,6 +194,11 @@ cc_grpc_library(
         ":command_server_cc_proto",
         "//third_party/grpc:grpc++_unsecure",
     ],
+)
+
+cc_proto_library(
+    name = "credential_helper_cc_proto",
+    deps = [":credential_helper_proto"],
 )
 
 py_proto_library(
