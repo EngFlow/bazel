@@ -177,7 +177,7 @@ public class RemoteExecutionService {
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
   private final boolean shouldForceDownloads;
-  private final Predicate<String> shouldForceDownloadFilter;
+  private final Predicate<String> shouldForceDownloadPredicate;
 
   public RemoteExecutionService(
       Executor executor,
@@ -225,7 +225,7 @@ public class RemoteExecutionService {
     // without RemoteOutputsMode.MINIMAL
     this.shouldForceDownloads = !regex.isEmpty() && remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL;
     Pattern pattern = Pattern.compile(regex);
-    this.shouldForceDownloadFilter = path -> {
+    this.shouldForceDownloadPredicate = path -> {
       Matcher m = pattern.matcher(path);
       return m.matches();
     };
@@ -1070,7 +1070,7 @@ public class RemoteExecutionService {
       }
 
       if (shouldForceDownloads) {
-        forcedDownloadsBuilder.addAll(buildFilesToDownloadWithFilter(metadata, action, shouldForceDownloadFilter));
+        forcedDownloadsBuilder.addAll(buildFilesToDownloadWithPredicate(metadata, action, shouldForceDownloadPredicate));
       }
     }
 
@@ -1169,21 +1169,21 @@ public class RemoteExecutionService {
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
           ActionResultMetadata metadata, RemoteAction action) {
-    return buildFilesToDownloadWithFilter(metadata, action, unused -> false);
+    return buildFilesToDownloadWithPredicate(metadata, action, unused -> true);
   }
 
-  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithFilter(
-          ActionResultMetadata metadata, RemoteAction action, Predicate<String> pathFilter) {
+  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
+          ActionResultMetadata metadata, RemoteAction action, Predicate<String> predicate) {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
     for (FileMetadata file : metadata.files()) {
-      if (!pathFilter.test(file.path.toString())) {
+      if (predicate.test(file.path.toString())) {
         builder.add(downloadFile(action, file));
       }
     }
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       for (FileMetadata file : entry.getValue().files()) {
-        if (!pathFilter.test(file.path.toString())) {
+        if (predicate.test(file.path.toString())) {
           builder.add(downloadFile(action, file));
         }
       }
