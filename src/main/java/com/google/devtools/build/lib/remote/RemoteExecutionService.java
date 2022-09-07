@@ -481,7 +481,7 @@ public class RemoteExecutionService {
     fingerprint.addIterableStrings(workerKey.getArgs());
     fingerprint.addStringMap(workerKey.getEnv());
     return new ToolSignature(
-        fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithHashes().keySet());
+        fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithDigests().keySet());
   }
 
   /** A value class representing the result of remotely executed {@link RemoteAction}. */
